@@ -14,6 +14,10 @@ class DataDritDetectionKS(object):
 
     def make_hist_info(self, data, nbins=10):
         n, bins = np.histogram(data, nbins)
+        hist_info = self._make_vis_info(n, bins)
+        return hist_info
+
+    def _make_vis_info(self, n, bins):
         left = bins[:-1]
         right = bins[1:]
         bottom = np.zeros(len(left))
@@ -25,7 +29,6 @@ class DataDritDetectionKS(object):
             left=left,
             bins=bins,
         )
-        return hist_info
 
     def _get_hist(self, hist_info, **kwargs):
         left = hist_info["left"]
