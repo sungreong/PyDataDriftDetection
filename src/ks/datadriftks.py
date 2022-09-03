@@ -29,11 +29,12 @@ class DataDritDetectionKS(object):
             left=left,
             bins=bins,
         )
+        return hist_info
 
     def _get_hist(self, hist_info, **kwargs):
         left = hist_info["left"]
         right = hist_info["right"]
-        top = hist_info["top"]
+        top = hist_info["top"] / sum(hist_info["top"])
         bottom = hist_info["bottom"]
         XY = np.array([[left, left, right, right], [bottom, top, top, bottom]]).T
         barpath = path.Path.make_compound_path_from_polys(XY)
@@ -67,7 +68,7 @@ class DataDritDetectionKS(object):
         ax.add_patch(patch)
         hist_info = self.get_min_max_x_y(after_hist_info=after_hist_info, prev_hist_info=prev_hist_info)
         ax.set_xlim(hist_info["left"], hist_info["right"])
-        ax.set_ylim(hist_info["bottom"], hist_info["top"])
+        ax.set_ylim(hist_info["bottom"], 1.0)  # hist_info["top"]
         ks_test = self.run_ks_test(prev_hist_info, after_hist_info)
         ax.set_title(f"KS Statistics : {ks_test.statistic:.5f}, P-VALUE : {ks_test.pvalue:.5f}")
         plt.savefig(self._save_fig_path)
