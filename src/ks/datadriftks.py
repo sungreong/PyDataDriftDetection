@@ -8,14 +8,28 @@ __all__ = ["DataDritDetectionKS"]
 
 
 class DataDritDetectionKS(object):
-    def __init__(self, p_value, save_fig_path):
+    def __init__(self, p_value, save_fig_path, nbins=10):
         self._p_value = p_value
         self._save_fig_path = save_fig_path
+        self._nbins = nbins
 
-    def make_hist_info(self, data, nbins=10):
-        n, bins = np.histogram(data, nbins)
-        hist_info = self._make_vis_info(n, bins)
+    def make_hist_info(self, data, use_prev_hist=False):
+        if use_prev_hist:
+            self._after_hist_info = self._prev_hist_info.copy()
+            after_top = np.digitize(data, bins=self._prev_hist_info["bins"][1:-1], right=False)
+            bin_count = {i: 0 for i in range(0, self._nbins)}
+            unique_n, top = np.unique(after_top, return_counts=True)
+            bin_count.update(dict(zip(unique_n, top)))
+            self._after_hist_info["top"] = np.array(list(bin_count.values()))
+            hist_info = self._after_hist_info
+        else:
+            n, bins = np.histogram(data, self._nbins)
+            hist_info = self._make_vis_info(n, bins)
         return hist_info
+
+    def add_prev_hist_info(self, hist_info):
+        self._prev_hist_info = hist_info
+        self._bins = len(self._prev_hist_info["bins"][1:])
 
     def _make_vis_info(self, n, bins):
         left = bins[:-1]
@@ -45,11 +59,15 @@ class DataDritDetectionKS(object):
         min_left = min(prev_hist_info["left"][0], after_hist_info["left"][0])
         max_right = max(prev_hist_info["right"][-1], after_hist_info["right"][-1])
         min_bottom = min(prev_hist_info["bottom"].min(), after_hist_info["bottom"].min())
-        max_top = max(prev_hist_info["top"].max(), after_hist_info["top"].max())
+        max_top = max(
+            prev_hist_info["top"].max() / sum(prev_hist_info["top"]),
+            after_hist_info["top"].max() / sum(after_hist_info["top"]),
+        )
         return dict(left=min_left, right=max_right, bottom=min_bottom, top=max_top)
 
     def run_ks_test(self, prev_hist_info, after_hist_info):
-        ks_test = ks_2samp(prev_hist_info["bins"], after_hist_info["bins"])
+        after_bins = after_hist_info["bins"][:-1][np.where(after_hist_info["top"] > 0, True, False)]
+        ks_test = ks_2samp(prev_hist_info["bins"], after_bins)
         return ks_test
 
     def is_data_drift(self, prev_hist_info, after_hist_info):
@@ -68,7 +86,7 @@ class DataDritDetectionKS(object):
         ax.add_patch(patch)
         hist_info = self.get_min_max_x_y(after_hist_info=after_hist_info, prev_hist_info=prev_hist_info)
         ax.set_xlim(hist_info["left"], hist_info["right"])
-        ax.set_ylim(hist_info["bottom"], 1.0)  # hist_info["top"]
+        ax.set_ylim(hist_info["bottom"], hist_info["top"])  # hist_info["top"]
         ks_test = self.run_ks_test(prev_hist_info, after_hist_info)
         ax.set_title(f"KS Statistics : {ks_test.statistic:.5f}, P-VALUE : {ks_test.pvalue:.5f}")
         plt.savefig(self._save_fig_path)
